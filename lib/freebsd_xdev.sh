@@ -1,4 +1,5 @@
 FREEBSD_XDEV_PREFIX=
+FREEBSD_XDEV_IS_CLANG=
 
 # freebsd_xdev_test: Verify that xdev tools exist.
 #
@@ -21,7 +22,8 @@ freebsd_xdev_test ( ) {
             ;;
     esac
 
-    FREEBSD_XDEV_PREFIX=${XDEV_ARCH}-freebsd-
+    # XXX: seems to be different for clang
+    FREEBSD_XDEV_PREFIX=${XDEV}-freebsd-
     CC=${FREEBSD_XDEV_PREFIX}cc
     if [ -z `which ${CC}` ]; then
         echo "Can't find appropriate FreeBSD xdev tools."
@@ -43,4 +45,9 @@ freebsd_xdev_test ( ) {
         exit 1
     fi
     echo "Found FreeBSD xdev tools for ${XDEV_ARCH}"
+
+    FREEBSD_XDEV_IS_CLANG=`arm-freebsd-cc --version | grep -c clang`
+    if [ ${FREEBSD_XDEV_IS_CLANG} -eq 1 ]; then
+        echo Cross compiler is clang
+    fi
 }
