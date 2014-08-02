@@ -2,6 +2,8 @@
 
 . ${LIBDIR}/freebsd_xdev.sh
 
+UBOOT_GMAKE_ARGS=
+
 # $1: Variable that holds root of U-Boot tree
 # $2...: list of commands to fetch appropriate U-Boot sources
 _uboot_download_instructions ( ) (
@@ -54,11 +56,13 @@ uboot_test ( ) {
         echo "Please install devel/gmake and re-run this script."
         exit 1
     fi
-    if [ -z `which gsed` ]; then
-        echo "U-Boot build requires 'gsed'"
-        echo "Please install textproc/gsed and re-run this script."
-        exit 1
-    fi
+#    XXX: make this optional
+#    UBOOT_GMAKE_ARGS = SED=gsed
+#    if [ -z `which gsed` ]; then
+#        echo "U-Boot build requires 'gsed'"
+#        echo "Please install textproc/gsed and re-run this script."
+#        exit 1
+#    fi
     if [ -f "$2" ]; then
         _UBOOT_SRC=`eval echo \\$$1`
         echo "Found U-Boot sources in:"
@@ -71,6 +75,14 @@ uboot_test ( ) {
         exit 1
     fi
 
+    UBOOT_GMAKE_ARGS="${UBOOT_GMAKE_ARGS} HOSTCC=cc"
+    # Clang, at least on FreeBSD current must be invoked quite weirdly to prevent
+    # eabi related errors. The arm-use-movt is needed to make relocation work.
+    if [ ${FREEBSD_XDEV_IS_CLANG} -eq 1 ]; then
+        UBOOT_GMAKE_ARGS="${UBOOT_GMAKE_ARGS} CROSS_COMPILE=arm-eabi- CC='${CC} -target ${FREEBSD_XDEV_PREFIX}eabi -no-integrated-as -mllvm -arm-use-movt=0'"
+    else
+        UBOOT_GMAKE_ARGS="${UBOOT_GMAKE_ARGS} CROSS_COMPILE=${FREEBSD_XDEV_PREFIX}"
+    fi
 }
 
 # uboot_patch: Apply patches to the U-Boot sources.
@@ -137,7 +149,7 @@ uboot_configure ( ) {
     cd "$1"
     echo "Configuring U-Boot at "`date`
     echo "    (Logging to $1/_.uboot.configure.log)"
-    if gmake CROSS_COMPILE=${FREEBSD_XDEV_PREFIX} $2 > $1/_.uboot.configure.log 2>&1; then
+    if eval gmake "${UBOOT_GMAKE_ARGS}" $2 > $1/_.uboot.configure.log 2>&1; then
         true # success
     else
         echo "  Failed to configure U-Boot."
@@ -160,7 +172,7 @@ uboot_build ( ) (
     cd "$1"
     echo "Building U-Boot at "`date`
     echo "    (Logging to $1/_.uboot.build.log)"
-    if gmake SED=gsed HOSTCC=cc CROSS_COMPILE=${FREEBSD_XDEV_PREFIX} > $1/_.uboot.build.log 2>&1; then
+    if eval gmake ${UBOOT_GMAKE_ARGS} > $1/_.uboot.build.log 2>&1; then
         true # success
     else
         echo "  Failed to build U-Boot."
